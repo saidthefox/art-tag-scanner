@@ -229,7 +229,8 @@ $('save').addEventListener('click', () => {
       lon: state.lon
     };
     addRow(row);
-    $('status').textContent = 'Saved.';
+    sendToSheet(row); // sends to Sheets right now
+    $('status').textContent = 'Saved locally & sent to Sheets.';
   } catch (e) { alert(e.message || String(e)); }
 });
 $('export').addEventListener('click', () => downloadCSV());

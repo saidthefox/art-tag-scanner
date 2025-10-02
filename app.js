@@ -256,8 +256,9 @@ async function sendToSheet(row) {
   try {
     const res = await fetch(url, {
       method: 'POST',
+      mode: 'cors', // optional; default is fine too
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // <— avoid preflight
       body: JSON.stringify(row),
-      headers: { 'Content-Type': 'application/json' }
     });
     if (!res.ok) throw new Error(await res.text());
     $('status').textContent = 'Saved to Google Sheets.';

@@ -157,6 +157,34 @@ function downloadCSV() {
 
 function initDefaults() { $('date').value = todayYMD(); }
 
+// Read a File -> dataURL
+function readFileAsDataURL(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+}
+
+// Downscale/compress image to JPEG dataURL (cap largest side to 2000px)
+async function compressImageDataURL(srcDataURL, maxSize = 2000, quality = 0.85) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await new Promise((r, e) => { img.onload = r; img.onerror = e; img.src = srcDataURL; });
+  let { width:w, height:h } = img;
+  if (Math.max(w,h) > maxSize) {
+    const scale = maxSize / Math.max(w,h);
+    w = Math.round(w*scale); h = Math.round(h*scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', quality); // "data:image/jpeg;base64,...."
+}
+
+
 $('photo').addEventListener('change', (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -216,18 +244,30 @@ $('save').addEventListener('click', () => {
     const tok = $('token').value.trim() || (ver === 'v1' ? encodeV1(parseInt(d.slice(0,4),10), parseInt(d.slice(4,6),10), parseInt(d.slice(6,8),10), finalCents)
                                                    : encodeV2(parseInt(d.slice(0,4),10), parseInt(d.slice(4,6),10), parseInt(d.slice(6,8),10), finalCents).token);
     const variant = ver === 'v2' ? Number($('variant').value || '0') : null;
+    // Collect & compress selected photos
+const files = Array.from(($('photo').files || []));
+const images = [];
+for (let i = 0; i < files.length; i++) {
+  // read original
+  const raw = await readFileAsDataURL(files[i]);
+  // compress to jpeg dataURL
+  const jpeg = await compressImageDataURL(raw, 2000, 0.85);
+  images.push(jpeg);  // keep order
+}
+
     const row = {
-      created_at: Date.now(),
-      date_yyyymmdd: d,
-      price_cents: cents,
-      half_off: half,
-      final_cents: finalCents,
-      token: tok,
-      version: ver,
-      variant: ver === 'v2' ? variant : null,
-      lat: state.lat,
-      lon: state.lon
-    };
+  created_at: Date.now(),
+  date_yyyymmdd: d,
+  price_cents: cents,
+  half_off: half,
+  final_cents: finalCents,
+  token: tok,
+  version: ver,
+  variant: ver === 'v2' ? variant : null,
+  lat: state.lat,
+  lon: state.lon,
+  images // <— array of dataURLs (may be empty)
+};
     addRow(row);
     sendToSheet(row); // sends to Sheets right now
     $('status').textContent = 'Saved locally & sent to Sheets.';

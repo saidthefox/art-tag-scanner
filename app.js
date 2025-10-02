@@ -148,7 +148,16 @@ function extractFirstPriceFromText(text) {
 ============================== */
 const STORAGE_KEY = 'arttag_records_v1';
 function loadRecords() { try { state.rows = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { state.rows = []; } }
-function saveRecords() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.rows)); }
+function saveRecords() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.rows));
+    return true;
+  } catch (e) {
+    // Most likely QuotaExceededError on iOS Safari (~5MB cap)
+    console.warn('Local history save failed:', e);
+    return false;
+  }
+}
 function addRow(row) { state.rows.unshift(row); saveRecords(); renderTable(); }
 function clearRecords() { state.rows = []; saveRecords(); renderTable(); }
 function renderTable() {

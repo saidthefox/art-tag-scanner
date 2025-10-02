@@ -318,14 +318,24 @@ $('save').addEventListener('click', async () => {
 
     // Upload to Apps Script (Sheets + Drive)
     $('status').textContent = 'Uploading to Google Sheets & Drive…';
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoid CORS preflight
-      body: JSON.stringify(row)
-    });
-    const text = await res.text();
-    if (!res.ok) throw new Error(text || 'Upload failed');
-    $('status').textContent = 'Saved locally & uploaded to Sheets/Drive.';
+   const res = await fetch(APPS_SCRIPT_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+  body: JSON.stringify(row)
+});
+const text = await res.text();
+if (!res.ok) throw new Error(text || 'Upload failed');
+
+let out = {};
+try { out = JSON.parse(text); } catch {}
+if (out.ok) {
+  const count = (out.files && out.files.length) || 0;
+  const errs  = (out.errors && out.errors.length) || 0;
+  $('status').textContent = `Saved locally & uploaded to Sheets/Drive. Photos: ${count}${errs ? ' | Errors: ' + errs : ''}`;
+} else {
+  $('status').textContent = 'Server error: ' + (out.error || text);
+}
+
 
     // Optional: clear photos after successful upload
     // selectedFiles = []; renderGallery();

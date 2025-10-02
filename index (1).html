@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Art Tag Scanner → Short ID</title>
+  <meta name="theme-color" content="#0a7">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    :root { --gap: 14px; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0 auto; padding: 20px; max-width: 880px; line-height: 1.45; }
+    h1 { font-size: 1.35rem; margin: 0 0 8px 0; }
+    p.note { color: #555; margin-top: 0; }
+    label { font-weight: 600; display:block; margin-top: var(--gap); }
+    input, button, select, textarea { width: 100%; padding: 10px 12px; font-size: 1rem; border: 1px solid #ccc; border-radius: 10px; }
+    button { background: #0a7; color:white; cursor: pointer; border: 1px solid #0a7; }
+    button.secondary { background:#555; border-color:#555; }
+    button.ghost { background: white; color:#0a7; border-color:#0a7; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--gap); }
+    .row { display: flex; gap: 10px; }
+    .box { padding: 14px; border: 1px dashed #ccc; border-radius: 12px; background: #fafafa; margin-top: var(--gap); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .muted { color:#666; font-size: .95rem; }
+    .gallery { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .thumb { width:92px; height:92px; object-fit:cover; border-radius:10px; border:1px solid #ddd; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; font-size: .95rem; }
+    th { background:#f6f6f6; position: sticky; top: 0; }
+  </style>
+</head>
+<body>
+  <h1>Art Tag Scanner → Short ID</h1>
+  <p class="note">Snap price tag(s) → on‑device OCR → 50% off toggle → short ID (v1 or v2) → GPS → Save to Google Sheets + upload all photos to Drive folder.</p>
+
+  <div class="box">
+    <label>1) Take or choose photo(s) of the tag <small class="muted">(you can select multiple)</small></label>
+    <input id="photo" type="file" accept="image/*" capture="environment" multiple>
+    <div id="gallery" class="gallery"></div>
+
+    <div class="grid3">
+      <div>
+        <label>Detected price ($)</label>
+        <input id="price" placeholder="auto-detected" inputmode="decimal">
+      </div>
+      <div>
+        <label>Date (YYYYMMDD)</label>
+        <input id="date" class="mono" placeholder="YYYYMMDD">
+      </div>
+      <div style="display:flex; align-items: end;">
+        <button id="runOcr" class="secondary">Run OCR (uses 1st photo)</button>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+        <input type="checkbox" id="halfOff" style="width:auto;">
+        <label for="halfOff" style="margin-top:0;">Item was 50% off</label>
+      </div>
+      <div>
+        <label>Version</label>
+        <select id="version">
+          <option value="v2" selected>v2 – 10 chars (with variant)</option>
+          <option value="v1">v1 – 8 chars (legacy)</option>
+        </select>
+      </div>
+      <div>
+        <label>Variant (v2 only, 0–255)</label>
+        <input id="variant" type="number" min="0" max="255" placeholder="random">
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <label>Token</label>
+        <input id="token" class="mono" readonly placeholder="Generated token">
+      </div>
+      <div>
+        <label>Actions</label>
+        <div class="row">
+          <button id="gen">Generate</button>
+          <button id="save" class="ghost">Save (Sheet + Drive)</button>
+        </div>
+      </div>
+    </div>
+    <div id="status" class="muted" style="margin-top:8px;">Ready.</div>
+  </div>
+
+  <div class="box">
+    <div class="grid3">
+      <div>
+        <label>Auto‑location</label>
+        <div class="row">
+          <button id="getLoc" class="secondary">Get GPS</button>
+        </div>
+      </div>
+      <div>
+        <label>Latitude</label>
+        <input id="lat" class="mono" readonly>
+      </div>
+      <div>
+        <label>Longitude</label>
+        <input id="lon" class="mono" readonly>
+      </div>
+    </div>
+    <div class="muted">Location is optional; stored with the record if available.</div>
+  </div>
+
+  <div class="box">
+    <div class="row" style="justify-content: space-between; align-items:center;">
+      <strong>Your records (local)</strong>
+      <div class="row">
+        <button id="export">Export CSV</button>
+        <button id="clear" class="secondary">Clear</button>
+      </div>
+    </div>
+    <div style="overflow:auto; max-height: 360px; margin-top: 10px;">
+      <table id="table">
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>Date</th>
+            <th>Price</th>
+            <th>50%?</th>
+            <th>Final $</th>
+            <th>Token</th>
+            <th>Ver</th>
+            <th>Variant</th>
+            <th>Lat</th>
+            <th>Lon</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tesseract.js (OCR) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

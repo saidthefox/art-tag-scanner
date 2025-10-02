@@ -1,11 +1,16 @@
 // app.js — multi-photo → OCR → short ID → local log + Google Sheets + Drive upload
+'use strict';
 
-// ---------- CONFIG ----------
+/* ==============================
+   CONFIG
+============================== */
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzXYKl5Wi1iOplK9d4mZNHtg-H70H9lb07JkitkPrl0Zb7pVoh8sPYWTxzicUtlE-a4/exec';
-const MAX_IMAGE_SIDE = 2000; // px
-const JPEG_QUALITY = 0.85;
+const MAX_IMAGE_SIDE = 2000; // px (largest edge after downscale)
+const JPEG_QUALITY   = 0.85; // 0..1
 
-// ---------- Base64url (no padding) ----------
+/* ==============================
+   Base64url helpers
+============================== */
 function b64UrlEncode(bytes) {
   let bin = '';
   for (let b of bytes) bin += String.fromCharCode(b);
@@ -20,36 +25,44 @@ function b64UrlDecode(s) {
   return arr;
 }
 
-// ---------- Pack YYYY/MM/DD + cents into 48 bits (6 bytes) ----------
+/* ==============================
+   Pack YYYY/MM/DD + cents into 48 bits (6 bytes)
+============================== */
 function packDateAmount(yyyy, mm, dd, cents) {
   if (!(Number.isInteger(yyyy) && 0 <= yyyy && yyyy <= 16383)) throw new Error("Year out of range (0..16383)");
   if (!(Number.isInteger(mm) && 1 <= mm && mm <= 12)) throw new Error("Month must be 1..12");
   if (!(Number.isInteger(dd) && 1 <= dd && dd <= 31)) throw new Error("Day must be 1..31");
   if (!(Number.isInteger(cents) && 0 <= cents && cents <= ((1<<25)-1))) throw new Error("Amount too large (max 33,554,431 cents)");
   let v = BigInt(yyyy);
-  v = (v << 34n) | (BigInt(mm) << 30n) | (BigInt(dd) << 25n) | BigInt(cents);
+  v = (v << 34n) | (BigInt(mm) << 30n) | (BigInt(dd) << 25n) | BigInt(cents); // 14|4|5|25 = 48 bits
   const out = new Uint8Array(6);
   for (let i=5;i>=0;i--) { out[i] = Number(v & 0xFFn); v >>= 8n; }
   return out;
 }
 
-// ---------- Short ID encoders (v1/v2) ----------
+/* ==============================
+   Short ID encoders (v1/v2)
+============================== */
 function encodeV1(yyyy, mm, dd, cents) {
   const b6 = packDateAmount(yyyy, mm, dd, cents);
-  return b64UrlEncode(b6);
+  return b64UrlEncode(b6); // 6 bytes -> 8 chars
 }
 function encodeV2(yyyy, mm, dd, cents, variant) {
   const b6 = packDateAmount(yyyy, mm, dd, cents);
-  const v = (variant == null || isNaN(variant)) ? (Math.floor(Math.random()*256) & 0xFF) : Math.max(0, Math.min(255, variant|0));
+  const v = (variant == null || isNaN(variant)) ? (Math.floor(Math.random()*256) & 0xFF)
+                                                : Math.max(0, Math.min(255, variant|0));
   const buf = new Uint8Array(7);
-  buf[0] = v;
-  buf.set(b6, 1);
-  return { token: b64UrlEncode(buf), variant: v };
+  buf[0] = v;            // variant byte
+  buf.set(b6, 1);        // 6 bytes payload
+  return { token: b64UrlEncode(buf), variant: v }; // 7 bytes -> 10 chars
 }
 
-// ---------- Helpers ----------
+/* ==============================
+   Helpers / State
+============================== */
 const $ = (id) => document.getElementById(id);
 const state = { lat: null, lon: null, rows: [] };
+let selectedFiles = []; // persists across multiple picks
 
 function todayYMD() {
   const d = new Date();
@@ -67,7 +80,7 @@ function priceStringToCents(s) {
 }
 function centsToDollars(cents) { return (cents/100).toFixed(2); }
 
-// Read a File -> dataURL
+// File → dataURL
 function readFileAsDataURL(file) {
   return new Promise((res, rej) => {
     const fr = new FileReader();
@@ -76,7 +89,7 @@ function readFileAsDataURL(file) {
     fr.readAsDataURL(file);
   });
 }
-// Downscale/compress image to JPEG dataURL
+// Downscale/compress to JPEG dataURL
 async function compressImageDataURL(srcDataURL, maxSize = MAX_IMAGE_SIDE, quality = JPEG_QUALITY) {
   const img = new Image();
   img.crossOrigin = 'anonymous';
@@ -90,15 +103,17 @@ async function compressImageDataURL(srcDataURL, maxSize = MAX_IMAGE_SIDE, qualit
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0, w, h);
-  return canvas.toDataURL('image/jpeg', quality);
+  return canvas.toDataURL('image/jpeg', quality); // "data:image/jpeg;base64,..."
 }
 
-// ---------- OCR via Tesseract ----------
+/* ==============================
+   OCR (Tesseract.js)
+============================== */
 async function ocrImage(file) {
   $('status').textContent = 'Running OCR…';
   const dataURL = await readFileAsDataURL(file);
   try {
-    const result = await Tesseract.recognize(dataURL, 'eng', { logger: m => {} });
+    const result = await Tesseract.recognize(dataURL, 'eng', { logger: _ => {} });
     const text = result.data.text || '';
     $('status').textContent = 'OCR done.';
     return text;
@@ -128,7 +143,9 @@ function extractFirstPriceFromText(text) {
   return null;
 }
 
-// ---------- Records (local) ----------
+/* ==============================
+   Local records / table / CSV
+============================== */
 const STORAGE_KEY = 'arttag_records_v1';
 function loadRecords() { try { state.rows = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { state.rows = []; } }
 function saveRecords() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.rows)); }
@@ -188,24 +205,35 @@ function downloadCSV() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ---------- UI wiring ----------
-function initDefaults() { $('date').value = todayYMD(); }
-
-$('photo').addEventListener('change', async (e) => {
-  const files = Array.from(e.target.files || []);
-  const gal = $('gallery'); gal.innerHTML = '';
-  for (const f of files) {
+/* ==============================
+   Photo selection (multi)
+============================== */
+function renderGallery() {
+  const gal = $('gallery');
+  gal.innerHTML = '';
+  selectedFiles.forEach(f => {
     const url = URL.createObjectURL(f);
     const img = document.createElement('img');
     img.src = url; img.className = 'thumb';
     gal.appendChild(img);
     img.onload = () => URL.revokeObjectURL(url);
-  }
-  $('status').textContent = files.length ? `${files.length} photo(s) loaded.` : 'No photos selected.';
+  });
+  $('status').textContent =
+    selectedFiles.length ? `${selectedFiles.length} photo(s) selected.` : 'No photos selected.';
+}
+
+$('photo').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files || []);
+  selectedFiles = selectedFiles.concat(files); // append so user can pick multiple times
+  renderGallery();
+  e.target.value = ''; // allow re-selecting same files later
 });
 
+/* ==============================
+   Buttons: OCR / Generate / Save / Export / Clear / GPS
+============================== */
 $('runOcr').addEventListener('click', async () => {
-  const file = ($('photo').files || [])[0];
+  const file = selectedFiles[0];
   if (!file) { alert('Choose at least one photo first'); return; }
   try {
     const text = await ocrImage(file);
@@ -263,13 +291,12 @@ $('save').addEventListener('click', async () => {
       : encodeV2(yyyy, mm, dd, finalCents).token);
     const variant = ver === 'v2' ? Number($('variant').value || '0') : null;
 
-    // Collect & compress selected photos
-    const files = Array.from(($('photo').files || []));
+    // Compress all selected photos
     const images = [];
-    for (let i = 0; i < files.length; i++) {
-      const raw = await readFileAsDataURL(files[i]);
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const raw = await readFileAsDataURL(selectedFiles[i]);
       const jpeg = await compressImageDataURL(raw, MAX_IMAGE_SIDE, JPEG_QUALITY);
-      images.push(jpeg);
+      images.push(jpeg); // keep order
     }
 
     const row = {
@@ -286,17 +313,23 @@ $('save').addEventListener('click', async () => {
       images
     };
 
-    addRow(row); // local
-    $('status').textContent = 'Uploading to Google Sheets & Drive…';
+    // Save locally (table/CSV)
+    addRow(row);
 
+    // Upload to Apps Script (Sheets + Drive)
+    $('status').textContent = 'Uploading to Google Sheets & Drive…';
     const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoid CORS preflight
       body: JSON.stringify(row)
     });
     const text = await res.text();
     if (!res.ok) throw new Error(text || 'Upload failed');
     $('status').textContent = 'Saved locally & uploaded to Sheets/Drive.';
+
+    // Optional: clear photos after successful upload
+    // selectedFiles = []; renderGallery();
+
   } catch (e) { alert(e.message || String(e)); }
 });
 
@@ -316,4 +349,8 @@ $('getLoc').addEventListener('click', () => {
   }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
 });
 
+/* ==============================
+   Boot
+============================== */
+function initDefaults() { $('date').value = todayYMD(); }
 loadRecords(); renderTable(); initDefaults();

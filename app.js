@@ -180,12 +180,13 @@ function renderTable() {
       <td>${r.variant ?? ''}</td>
       <td>${r.lat ?? ''}</td>
       <td>${r.lon ?? ''}</td>
+      <td>${r.description ? (String(r.description).replace(/</g, '&lt;')) : ''}</td>
     `;
     tb.appendChild(tr);
   }
 }
 function toCSV(rows) {
-  const headers = ['created_at','date_yyyymmdd','price_cents','half_off','final_cents','token','version','variant','lat','lon'];
+  const headers = ['created_at','date_yyyymmdd','price_cents','half_off','final_cents','token','version','variant','lat','lon','description'];
   const lines = [headers.join(',')];
   for (const r of rows) {
     const vals = [
@@ -198,7 +199,8 @@ function toCSV(rows) {
       r.version,
       r.variant ?? '',
       r.lat ?? '',
-      r.lon ?? ''
+      r.lon ?? '',
+      r.description ?? ''
     ];
     lines.push(vals.map(v => String(v).replace(/"/g,'""')).join(','));
   }
@@ -308,6 +310,8 @@ $('save').addEventListener('click', async () => {
       images.push(jpeg); // keep order
     }
 
+    const description = $('description') ? $('description').value.trim() : '';
+
     const row = {
       created_at: Date.now(),
       date_yyyymmdd: d,
@@ -319,7 +323,8 @@ $('save').addEventListener('click', async () => {
       variant: ver === 'v2' ? variant : null,
       lat: state.lat,
       lon: state.lon,
-      images
+      images,
+      description
     };
 
     // Save locally (table/CSV)

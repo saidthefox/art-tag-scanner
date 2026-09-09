@@ -1,7 +1,7 @@
 // sw.js — cache the app shell for offline use only.
 // API calls (api.rescued.art) and uploads (POST) always hit the network and are
 // never intercepted.
-const CACHE = 'rescued-studio-v5';
+const CACHE = 'rescued-studio-v6';
 const ASSETS = ['./', './index.html', './app.js', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -16,9 +16,14 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   const req = e.request;
+  const url = new URL(req.url);
+  const scopePath = new URL(self.registration.scope).pathname;
   // Only the app's own GET requests are served from cache; everything else
-  // (POST uploads, cross-origin API) falls through to the network.
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  // (POST uploads and API calls) falls through to the network. The pathname
+  // check matters when Studio is hosted at api.rescued.art/studio/: its API is
+  // same-origin but deliberately outside this service worker's scope.
+  if (req.method !== 'GET' || url.origin !== self.location.origin ||
+      !url.pathname.startsWith(scopePath)) return;
   e.respondWith(
     caches.match(req).then(res => res || fetch(req).catch(() => caches.match('./index.html')))
   );

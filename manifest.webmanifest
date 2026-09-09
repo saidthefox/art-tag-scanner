@@ -1,6 +1,6 @@
 {
-  "name": "Art Tag Scanner \u2192 Short ID",
-  "short_name": "ArtTag",
+  "name": "rescued.art \u2014 Studio",
+  "short_name": "Studio",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",

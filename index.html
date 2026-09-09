@@ -3,147 +3,175 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Art Tag Scanner → Short ID</title>
+  <meta name="robots" content="noindex, nofollow">
+  <title>rescued.art — Studio</title>
   <meta name="theme-color" content="#0a7">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <style>
-    :root { --gap: 14px; }
+    :root { --gap: 14px; --ink:#1a1a1a; --teal:#0a7; --line:#e3e3e3; }
     * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0 auto; padding: 20px; max-width: 880px; line-height: 1.45; }
-    h1 { font-size: 1.35rem; margin: 0 0 8px 0; }
-    p.note { color: #555; margin-top: 0; }
-    label { font-weight: 600; display:block; margin-top: var(--gap); }
-    input, button, select, textarea { width: 100%; padding: 10px 12px; font-size: 1rem; border: 1px solid #ccc; border-radius: 10px; }
-    button { background: #0a7; color:white; cursor: pointer; border: 1px solid #0a7; }
-    button.secondary { background:#555; border-color:#555; }
-    button.ghost { background: white; color:#0a7; border-color:#0a7; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
-    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--gap); }
-    .row { display: flex; gap: 10px; }
-    .box { padding: 14px; border: 1px dashed #ccc; border-radius: 12px; background: #fafafa; margin-top: var(--gap); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-    .muted { color:#666; font-size: .95rem; }
-    .gallery { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-    .thumb { width:92px; height:92px; object-fit:cover; border-radius:10px; border:1px solid #ddd; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; font-size: .95rem; }
-    th { background:#f6f6f6; position: sticky; top: 0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+           margin: 0 auto; padding: 16px; max-width: 760px; line-height: 1.45; color: var(--ink); }
+    h1 { font-size: 1.2rem; margin: 0; }
+    .sub { color:#666; font-size:.9rem; margin:2px 0 14px; }
+    input, button, select, textarea { width: 100%; padding: 10px 12px; font-size: 1rem;
+           border: 1px solid #ccc; border-radius: 10px; background:#fff; }
+    button { background: var(--teal); color:#fff; cursor: pointer; border-color: var(--teal); font-weight:600; }
+    button.secondary { background:#566; border-color:#566; }
+    button.ghost { background:#fff; color:var(--teal); }
+    button.danger { background:#fff; color:#b23; border-color:#d99; }
+    button:disabled { opacity:.5; cursor:default; }
+    .tabs { display:flex; gap:8px; margin-bottom:14px; }
+    .tabs button { background:#eee; color:#444; border-color:#ddd; }
+    .tabs button.active { background:var(--teal); color:#fff; border-color:var(--teal); }
+    .box { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background:#fafafa; margin-top: var(--gap); }
+    .row { display:flex; gap:10px; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
+    label { font-weight:600; display:block; margin-top:10px; font-size:.92rem; }
+    .muted { color:#666; font-size:.9rem; }
+    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .gallery { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .thumb { width:90px; height:90px; object-fit:cover; border-radius:10px; border:1px solid #ddd; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:12px; }
+    .card { border:1px solid var(--line); border-radius:12px; overflow:hidden; cursor:pointer; background:#fff; }
+    .card img { width:100%; height:130px; object-fit:cover; display:block; background:#eee; }
+    .card .meta { padding:8px 10px; }
+    .card .t { font-weight:600; font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .badge { display:inline-block; font-size:.72rem; padding:2px 7px; border-radius:999px; margin:3px 4px 0 0; }
+    .notice { padding:10px 12px; margin:12px 0; border:1px solid #e5c96d; border-radius:10px; background:#fff8dd; color:#6b5611; font-size:.88rem; }
+    .b-pub { background:#dff5e8; color:#0a7; } .b-draft { background:#fde7d6; color:#a60; }
+    .b-pending { background:#eee; color:#777; } .b-analyzed { background:#e6eefb; color:#36c; }
+    .slot { border:1px solid var(--line); border-radius:10px; padding:10px; margin-top:10px; background:#fff; }
+    .slot h4 { margin:0 0 6px; font-size:.9rem; }
+    .slot.empty { opacity:.6; border-style:dashed; }
+    .slotimg { display:flex; gap:10px; align-items:center; }
+    .slotimg img { width:64px; height:64px; object-fit:cover; border-radius:8px; }
+    .hidden { display:none !important; }
+    #status { margin-top:10px; }
   </style>
 </head>
 <body>
-  <h1>Art Tag Scanner → Short ID</h1>
-  <p class="note">Snap price tag(s) → on‑device OCR → 50% off toggle → short ID (v1 or v2) → GPS → Save to Google Sheets + upload all photos to Drive folder.</p>
+  <div class="row" style="justify-content:space-between; align-items:center;">
+    <div><h1>rescued.art — Studio</h1><div class="sub">Capture pieces · review the model's read · publish.</div></div>
+    <button id="logout" class="ghost hidden" style="width:auto;">Sign out</button>
+  </div>
 
-  <div class="box">
-    <label>1) Take or choose photo(s) of the tag <small class="muted">(you can select multiple)</small></label>
-    <input id="photo" type="file" accept="image/*" multiple>
-    <div id="gallery" class="gallery"></div>
+  <section id="viewLogin" class="box">
+    <strong>Private Studio</strong>
+    <p class="muted">Enter the Studio password. The long-lived service credentials never enter this browser.</p>
+    <label for="loginPassword">Password</label>
+    <input id="loginPassword" type="password" autocomplete="current-password">
+    <button id="loginButton" style="margin-top:12px;">Sign in</button>
+    <div id="loginStatus" class="muted" style="margin-top:8px;"></div>
+  </section>
 
-    <div class="grid3">
-      <div>
-        <label>Detected price ($)</label>
-        <input id="price" placeholder="auto-detected" inputmode="decimal">
+  <div id="studioApp" class="hidden">
+    <div class="notice">The catalogue is available, but rescued.art’s public gallery is still in coming-soon mode. Leave social announcements off until the gallery deployment is approved.</div>
+    <div class="tabs">
+      <button id="tabCapture" class="active">＋ Capture</button>
+      <button id="tabReview">▦ Review</button>
+    </div>
+
+  <!-- ============ CAPTURE ============ -->
+  <section id="viewCapture">
+    <div class="box">
+      <label>Photos of this one piece <span class="muted">— tag, the art on a white wall (close + wide), in a room, signature, the back. Just add them; the model sorts and reads them.</span></label>
+      <input id="photo" type="file" accept="image/*" multiple>
+      <div id="gallery" class="gallery"></div>
+    </div>
+    <div class="box">
+      <div class="grid2">
+        <button id="getLoc" class="secondary">📍 Get GPS (optional)</button>
+        <button id="upload">Upload piece</button>
       </div>
-      <div>
-        <label>Date (YYYYMMDD)</label>
-        <input id="date" class="mono" placeholder="YYYYMMDD">
+      <div class="muted" style="margin-top:8px;">GPS is private — only used server-side to file the piece under the nearest Goodwill.</div>
+      <div id="status" class="muted">Ready.</div>
+      <div id="pendingWrap" class="hidden" style="margin-top:10px;">
+        <button id="retry" class="ghost">Retry pending uploads (<span id="pendingN">0</span>)</button>
       </div>
-      <div style="display:flex; align-items: end;">
-        <button id="runOcr" class="secondary">Run OCR (uses 1st photo)</button>
+    </div>
+  </section>
+
+  <!-- ============ REVIEW (list) ============ -->
+  <section id="viewReview" class="hidden">
+    <div class="row" style="justify-content:space-between; align-items:center;">
+      <strong>Pieces</strong>
+      <button id="refresh" class="ghost" style="width:auto;">↻ Refresh</button>
+    </div>
+    <div id="cards" class="cards"></div>
+    <div id="reviewStatus" class="muted" style="margin-top:10px;"></div>
+  </section>
+
+  <!-- ============ DETAIL ============ -->
+  <section id="viewDetail" class="hidden">
+    <button id="back" class="ghost" style="width:auto;">← Back to list</button>
+    <div class="box">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <div><strong id="dToken" class="mono"></strong> <span id="dBadges"></span></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button id="reanalyze" class="secondary">↻ Re-run model</button>
+        <button id="publish">Publish</button>
       </div>
     </div>
 
-    <div class="grid3">
-      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
-        <input type="checkbox" id="halfOff" style="width:auto;">
-        <label for="halfOff" style="margin-top:0;">Item was 50% off</label>
-      </div>
-      <div>
-        <label>Version</label>
-        <select id="version">
-          <option value="v2" selected>v2 – 10 chars (with variant)</option>
-          <option value="v1">v1 – 8 chars (legacy)</option>
-        </select>
-      </div>
-      <div>
-        <label>Variant (v2 only, 0–255)</label>
-        <input id="variant" type="number" min="0" max="255" placeholder="random">
-      </div>
+    <div class="box">
+      <strong>Social announcement</strong>
+      <p class="muted">Review the caption before anything is queued. The worker adds the piece link and posts one image to Bluesky and X.</p>
+      <label>Caption</label><textarea id="fSocial" rows="4" placeholder="New rescue…"></textarea>
+      <label style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+        <input id="fAnnounce" type="checkbox" style="width:auto;"> Announce when publishing
+      </label>
+      <button id="queueSocial" class="secondary hidden" style="margin-top:10px;">Queue announcement</button>
+      <div id="socialState" class="muted" style="margin-top:8px;">Not queued.</div>
     </div>
 
-    <div class="grid2">
-      <div>
-        <label>Token</label>
-        <input id="token" class="mono" readonly placeholder="Generated token">
+    <div class="box">
+      <strong>Photo slots</strong>
+      <div class="muted">The model sorted these. Use a dropdown to move a photo to a different slot.</div>
+      <div id="slots"></div>
+    </div>
+
+    <div class="box">
+      <strong>Details</strong>
+      <label>Title</label><input id="fTitle">
+      <label>Description</label><textarea id="fDesc" rows="4"></textarea>
+      <div class="grid2">
+        <div><label>Medium</label><input id="fMedium"></div>
+        <div><label>Dimensions</label><input id="fDims"></div>
       </div>
-      <div>
-        <label>Actions</label>
-        <div class="row">
-          <button id="gen">Generate</button>
-          <button id="save" class="ghost">Save (Sheet + Drive)</button>
+      <div class="grid2">
+        <div><label>Year</label><input id="fYear"></div>
+        <div><label>Status</label>
+          <select id="fStatus">
+            <option value="">—</option>
+            <option>For sale</option><option>For rent</option><option>For sale or rent</option>
+            <option>Sold</option><option>Not for sale</option>
+          </select>
         </div>
       </div>
-    </div>
-    <div style="margin-top:12px;">
-      <label>Description (optional)</label>
-      <textarea id="description" rows="4" placeholder="Add an optional description or notes about this item"></textarea>
-    </div>
-    <div id="status" class="muted" style="margin-top:8px;">Ready.</div>
-  </div>
-
-  <div class="box">
-    <div class="grid3">
-      <div>
-        <label>Auto‑location</label>
-        <div class="row">
-          <button id="getLoc" class="secondary">Get GPS</button>
+      <div class="grid2">
+        <div><label>Sale price ($)</label><input id="fSale" inputmode="decimal"></div>
+        <div><label>Rent price ($)</label><input id="fRent" inputmode="decimal"></div>
+      </div>
+      <details style="margin-top:12px;">
+        <summary class="muted">Acquisition (private — what you paid, from the tag)</summary>
+        <div class="grid2">
+          <div><label>Found date</label><input id="fAcq" type="date"></div>
+          <div><label>Tag price ($)</label><input id="fCost" inputmode="decimal"></div>
         </div>
-      </div>
-      <div>
-        <label>Latitude</label>
-        <input id="lat" class="mono" readonly>
-      </div>
-      <div>
-        <label>Longitude</label>
-        <input id="lon" class="mono" readonly>
-      </div>
+        <label style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+          <input id="fHalf" type="checkbox" style="width:auto;"> Was 50% off
+        </label>
+        <div class="muted" id="fFound" style="margin-top:6px;"></div>
+      </details>
+      <button id="save" style="margin-top:14px;">Save details</button>
+      <div id="detailStatus" class="muted" style="margin-top:8px;"></div>
     </div>
-    <div class="muted">Location is optional; stored with the record if available.</div>
+  </section>
   </div>
 
-  <div class="box">
-    <div class="row" style="justify-content: space-between; align-items:center;">
-      <strong>Your records (local)</strong>
-      <div class="row">
-        <button id="export">Export CSV</button>
-        <button id="clear" class="secondary">Clear</button>
-      </div>
-    </div>
-    <div style="overflow:auto; max-height: 360px; margin-top: 10px;">
-      <table id="table">
-        <thead>
-          <tr>
-            <th>Created</th>
-            <th>Date</th>
-            <th>Price</th>
-            <th>50%?</th>
-            <th>Final $</th>
-            <th>Token</th>
-            <th>Ver</th>
-            <th>Variant</th>
-            <th>Lat</th>
-            <th>Lon</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Tesseract.js (OCR) -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

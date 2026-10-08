@@ -43,6 +43,12 @@
     .badge { display:inline-block; font-size:.72rem; padding:2px 7px; border-radius:999px; margin:3px 4px 0 0; }
     .notice { padding:10px 12px; margin:12px 0; border:1px solid #e5c96d; border-radius:10px; background:#fff8dd; color:#6b5611; font-size:.88rem; }
     .b-pub { background:#dff5e8; color:#0a7; } .b-draft { background:#fde7d6; color:#a60; }
+    .b-size { background:#e6eef7; color:#245; font-weight:700; } .b-nosize { background:#f1f1f1; color:#888; }
+    .seg { display:flex; gap:6px; } .seg button { flex:1; background:#fff; color:var(--teal); border-color:var(--teal); padding:8px 0; }
+    .seg button.on { background:var(--teal); color:#fff; }
+    .card .seg { margin-top:6px; } .card .seg button { padding:6px 0; font-size:.85rem; }
+    .req { border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:12px; background:#fff; }
+    .req h4 { margin:0 0 6px; } .req .picks { font-size:.88rem; margin:6px 0; } .req select { width:auto; }
     .b-pending { background:#eee; color:#777; } .b-analyzed { background:#e6eefb; color:#36c; }
     .slot { border:1px solid var(--line); border-radius:10px; padding:10px; margin-top:10px; background:#fff; }
     .slot h4 { margin:0 0 6px; font-size:.9rem; }
@@ -69,10 +75,11 @@
   </section>
 
   <div id="studioApp" class="hidden">
-    <div class="notice">The catalogue is available, but rescued.art’s public gallery is still in coming-soon mode. Leave social announcements off until the gallery deployment is approved.</div>
+    <div class="notice">Bluesky and X posting runs as a dry run until Jake switches it on (HQ shows what would go out). Sizes (S/M/L) decide what can be rented.</div>
     <div class="tabs">
       <button id="tabCapture" class="active">＋ Capture</button>
       <button id="tabReview">▦ Review</button>
+      <button id="tabRequests">✉ Requests</button>
     </div>
 
   <!-- ============ CAPTURE ============ -->
@@ -84,6 +91,8 @@
     </div>
     <div class="box">
       <label class="justfound"><input id="justFound" type="checkbox"> ✨ Just found — post it soon</label>
+      <div class="muted" style="margin:0 0 6px;">Size (optional): S up to 16″ · M 16–30″ · L over 30″ on the longest side</div>
+      <div class="seg" id="capSize" style="margin-bottom:12px;"><button data-s="S">S</button><button data-s="M">M</button><button data-s="L">L</button></div>
       <div class="grid2">
         <button id="getLoc" class="secondary">📍 Get GPS (optional)</button>
         <button id="upload">Upload piece</button>
@@ -97,10 +106,21 @@
   </section>
 
   <!-- ============ REVIEW (list) ============ -->
+  <section id="viewRequests" class="hidden">
+    <div class="row" style="justify-content:space-between; align-items:center;">
+      <strong>Rental requests</strong>
+      <button id="refreshReq" class="ghost" style="width:auto;">↻ Refresh</button>
+    </div>
+    <div class="muted">From rescued.art/rent. You also get a Telegram line for each new one. Nothing is charged: reach out, then mark it.</div>
+    <div id="reqList"></div>
+    <div id="reqStatus" class="muted" style="margin-top:10px;"></div>
+  </section>
+
   <section id="viewReview" class="hidden">
     <div class="row" style="justify-content:space-between; align-items:center;">
       <strong>Pieces</strong>
-      <button id="refresh" class="ghost" style="width:auto;">↻ Refresh</button>
+      <div class="row"><button id="needSize" class="ghost" style="width:auto;">Needs a size</button>
+      <button id="refresh" class="ghost" style="width:auto;">↻ Refresh</button></div>
     </div>
     <div id="cards" class="cards"></div>
     <div id="reviewStatus" class="muted" style="margin-top:10px;"></div>
@@ -113,6 +133,8 @@
       <div class="row" style="justify-content:space-between; align-items:center;">
         <div><strong id="dToken" class="mono"></strong> <span id="dBadges"></span></div>
       </div>
+      <div class="muted" style="margin-top:10px;">Size for renting — S up to 16″ · M 16–30″ · L over 30″ (longest side). Tap again to clear.</div>
+      <div class="seg" id="dSize" style="margin-top:6px;"><button data-s="S">S</button><button data-s="M">M</button><button data-s="L">L</button></div>
       <div class="row" style="margin-top:10px;">
         <button id="reanalyze" class="secondary">↻ Re-run model</button>
         <button id="publish">Publish</button>

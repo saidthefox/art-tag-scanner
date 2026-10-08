@@ -1,7 +1,7 @@
 // sw.js — cache the app shell for offline use only.
 // API calls (api.rescued.art) and uploads (POST) always hit the network and are
 // never intercepted.
-const CACHE = 'rescued-studio-v7';
+const CACHE = 'rescued-studio-v8';
 const ASSETS = ['./', './index.html', './app.js', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

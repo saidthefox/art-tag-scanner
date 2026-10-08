@@ -91,12 +91,59 @@ function strToCents(s) {
 
 /* ----------------------- tabs ----------------------- */
 function show(view) {
-  for (const v of ['Capture', 'Review', 'Detail']) $('view' + v).classList.toggle('hidden', v !== view);
+  for (const v of ['Capture', 'Review', 'Detail', 'Requests']) $('view' + v).classList.toggle('hidden', v !== view);
   $('tabCapture').classList.toggle('active', view === 'Capture');
-  $('tabReview').classList.toggle('active', view !== 'Capture');
+  $('tabReview').classList.toggle('active', view === 'Review' || view === 'Detail');
+  $('tabRequests').classList.toggle('active', view === 'Requests');
 }
 $('tabCapture').onclick = () => show('Capture');
 $('tabReview').onclick = () => { show('Review'); loadList(); };
+$('tabRequests').onclick = () => { show('Requests'); loadRequests(); };
+
+/* ----------------------- sizes (renting, 2026-10-08) ----------------------- */
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function paintSeg(seg, value) { seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.s === value)); }
+async function setSize(token, size) {
+  return api(`/api/pieces/${encodeURIComponent(token)}`, { method: 'PATCH', body: JSON.stringify({ size_class: size || '' }) });
+}
+state.capSize = null;
+$('capSize').querySelectorAll('button').forEach((b) => b.onclick = () => {
+  state.capSize = state.capSize === b.dataset.s ? null : b.dataset.s; paintSeg($('capSize'), state.capSize);
+});
+$('dSize').querySelectorAll('button').forEach((b) => b.onclick = async () => {
+  const next = state.detail.sizeClass === b.dataset.s ? '' : b.dataset.s;
+  try { await setSize(state.detail.token, next); state.detail.sizeClass = next || null; paintSeg($('dSize'), state.detail.sizeClass); $('detailStatus').textContent = next ? `Size ${next} saved.` : 'Size cleared: not offered for rent.'; }
+  catch (e) { $('detailStatus').textContent = 'Could not save the size: ' + e.message; }
+});
+state.needSize = false;
+$('needSize').onclick = () => { state.needSize = !state.needSize; $('needSize').classList.toggle('on', state.needSize); $('needSize').textContent = state.needSize ? 'Show all' : 'Needs a size'; loadList(); };
+
+/* ----------------------- rental requests ----------------------- */
+const FREQ = { monthly: 'swap monthly', twice: 'swap twice a month' };
+async function loadRequests() {
+  $('reqStatus').textContent = 'Loading…'; $('reqList').innerHTML = '';
+  try {
+    const { requests } = await api('/api/admin/rent-requests');
+    $('reqStatus').textContent = requests.length ? '' : 'No requests yet.';
+    for (const r of requests) {
+      const contact = /@/.test(r.contact) ? `<a href="mailto:${esc(r.contact)}">${esc(r.contact)}</a>` : `<a href="tel:${esc(r.contact.replace(/[^\d+]/g, ''))}">${esc(r.contact)}</a>`;
+      const el = document.createElement('div'); el.className = 'req';
+      el.innerHTML = `<h4>${esc(r.name)} · ${r.count} ${esc(r.size)} piece${r.count > 1 ? 's' : ''}, ${FREQ[r.frequency] || esc(r.frequency)} · $${r.quoteDollars}/mo</h4>
+        <div class="muted">${new Date(r.createdAt).toLocaleString()} · ${contact} · ${esc(r.zip)}</div>
+        <div class="picks"><strong>Favourites:</strong> ${r.picks.map((p) => `<a href="https://rescued.art/gallery/?piece=${encodeURIComponent(p.token)}" target="_blank">${esc(p.title)}</a>`).join(', ')}</div>
+        ${(r.types || []).length || (r.subjects || []).length ? `<div class="muted">Likes: ${esc([...(r.types || []), ...(r.subjects || [])].join(', '))}</div>` : ''}
+        ${r.notes ? `<div style="margin-top:6px;">“${esc(r.notes)}”</div>` : ''}
+        <div class="row" style="margin-top:8px; align-items:center;">Status:
+          <select data-req="${r.id}">${['new', 'contacted', 'renting', 'closed'].map((s) => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`;
+      $('reqList').appendChild(el);
+    }
+    $('reqList').querySelectorAll('select[data-req]').forEach((sel) => sel.onchange = async () => {
+      try { await api(`/api/admin/rent-requests/${sel.dataset.req}`, { method: 'PATCH', body: JSON.stringify({ status: sel.value }) }); }
+      catch (e) { alert('Could not save: ' + e.message); }
+    });
+  } catch (e) { $('reqStatus').textContent = 'Error: ' + e.message; }
+}
+$('refreshReq').onclick = loadRequests;
 
 /* ----------------------- capture ----------------------- */
 function renderGallery() {
@@ -135,14 +182,14 @@ $('upload').onclick = async () => {
     const images = [];
     for (const f of state.files) images.push(await compress(await readFileAsDataURL(f)));
     // "Just found" (2026-10-08): a fresh find posts to Bluesky and X soon after the desk captions it.
-    const body = { images, lat: state.lat, lon: state.lon, just_found: $('justFound').checked };
+    const body = { images, lat: state.lat, lon: state.lon, just_found: $('justFound').checked, size_class: state.capSize };
     $('status').textContent = 'Uploading…';
     try {
       const out = await postPiece(body);
       const where = out.foundLocation ? ` · filed under ${out.foundLocation}` : '';
       const fresh = body.just_found ? ' Marked just found: it posts soon after the desk captions it.' : '';
       $('status').textContent = `Uploaded ${out.count} photo(s)${where}. Token ${out.token} — the model is reading it now; check the Review tab in a moment.${fresh}`;
-      state.files = []; state.lat = state.lon = null; $('justFound').checked = false; renderGallery();
+      state.files = []; state.lat = state.lon = null; $('justFound').checked = false; state.capSize = null; paintSeg($('capSize'), null); renderGallery();
     } catch (e) {
       const p = loadPending(); p.push({ ...body, ts: Date.now() }); savePending(p); renderPending();
       $('status').textContent = `Upload failed — saved locally to retry. ${e.message}`;
@@ -162,18 +209,26 @@ $('retry').onclick = async () => {
 async function loadList() {
   $('reviewStatus').textContent = 'Loading…'; $('cards').innerHTML = '';
   try {
-    const { pieces } = await api('/api/admin/pieces');
-    $('reviewStatus').textContent = pieces.length ? '' : 'No pieces yet — capture one.';
+    let { pieces } = await api('/api/admin/pieces');
+    if (state.needSize) pieces = pieces.filter((p) => p.published && !p.sizeClass);
+    $('reviewStatus').textContent = state.needSize ? `${pieces.length} published piece(s) without a size. Tap S, M or L on each.` : (pieces.length ? '' : 'No pieces yet — capture one.');
     for (const p of pieces) {
       const el = document.createElement('div'); el.className = 'card'; el.onclick = () => openDetail(p.token);
       const badges = [
+        p.sizeClass ? `<span class="badge b-size">${p.sizeClass}</span>` : (p.published ? '<span class="badge b-nosize">no size</span>' : ''),
         p.published ? '<span class="badge b-pub">published</span>' : '<span class="badge b-draft">draft</span>',
         p.reviewStatus === 'pending' ? '<span class="badge b-pending">analyzing…</span>'
           : p.reviewStatus === 'analyzed' ? '<span class="badge b-analyzed">analyzed</span>' : '',
       ].join('');
       el.innerHTML = `<img src="${p.hero || ''}" alt="" onerror="this.style.visibility='hidden'">
         <div class="meta"><div class="t">${p.title || '(untitled)'}</div>
-        <div class="mono muted" style="font-size:.78rem">${p.token}</div>${badges}</div>`;
+        <div class="mono muted" style="font-size:.78rem">${p.token}</div>${badges}
+        ${state.needSize ? '<div class="seg"><button data-s="S">S</button><button data-s="M">M</button><button data-s="L">L</button></div>' : ''}</div>`;
+      if (state.needSize) el.querySelectorAll('.seg button').forEach((b) => b.onclick = async (ev) => {
+        ev.stopPropagation();
+        try { await setSize(p.token, b.dataset.s); el.remove(); const left = $('cards').children.length; $('reviewStatus').textContent = `${left} published piece(s) without a size. Tap S, M or L on each.`; }
+        catch (e) { alert('Could not save the size: ' + e.message); }
+      });
       $('cards').appendChild(el);
     }
   } catch (e) { $('reviewStatus').textContent = 'Error: ' + e.message; }
@@ -193,6 +248,7 @@ async function openDetail(token) {
     $('publish').className = d.published ? 'secondary' : '';
     $('fTitle').value = d.title; $('fDesc').value = d.description;
     $('fSocial').value = d.socialCopy || '';
+    paintSeg($('dSize'), d.sizeClass || null);
     $('fAnnounce').checked = false;
     $('fMedium').value = d.medium; $('fDims').value = d.dimensions; $('fYear').value = d.yearMade;
     $('fStatus').value = d.status || '';

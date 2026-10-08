@@ -134,13 +134,15 @@ $('upload').onclick = async () => {
   try {
     const images = [];
     for (const f of state.files) images.push(await compress(await readFileAsDataURL(f)));
-    const body = { images, lat: state.lat, lon: state.lon };
+    // "Just found" (2026-10-08): a fresh find posts to Bluesky and X soon after the desk captions it.
+    const body = { images, lat: state.lat, lon: state.lon, just_found: $('justFound').checked };
     $('status').textContent = 'Uploading…';
     try {
       const out = await postPiece(body);
       const where = out.foundLocation ? ` · filed under ${out.foundLocation}` : '';
-      $('status').textContent = `Uploaded ${out.count} photo(s)${where}. Token ${out.token} — the model is reading it now; check the Review tab in a moment.`;
-      state.files = []; state.lat = state.lon = null; renderGallery();
+      const fresh = body.just_found ? ' Marked just found: it posts soon after the desk captions it.' : '';
+      $('status').textContent = `Uploaded ${out.count} photo(s)${where}. Token ${out.token} — the model is reading it now; check the Review tab in a moment.${fresh}`;
+      state.files = []; state.lat = state.lon = null; $('justFound').checked = false; renderGallery();
     } catch (e) {
       const p = loadPending(); p.push({ ...body, ts: Date.now() }); savePending(p); renderPending();
       $('status').textContent = `Upload failed — saved locally to retry. ${e.message}`;

@@ -27,6 +27,8 @@
     .tabs button.active { background:var(--teal); color:#fff; border-color:var(--teal); }
     .box { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background:#fafafa; margin-top: var(--gap); }
     .row { display:flex; gap:10px; }
+    .justfound { display:flex; gap:10px; align-items:center; font-size:1.05rem; margin:0 0 12px; }
+    .justfound input { width:24px; height:24px; margin:0; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
     label { font-weight:600; display:block; margin-top:10px; font-size:.92rem; }
     .muted { color:#666; font-size:.9rem; }
@@ -81,6 +83,7 @@
       <div id="gallery" class="gallery"></div>
     </div>
     <div class="box">
+      <label class="justfound"><input id="justFound" type="checkbox"> ✨ Just found — post it soon</label>
       <div class="grid2">
         <button id="getLoc" class="secondary">📍 Get GPS (optional)</button>
         <button id="upload">Upload piece</button>

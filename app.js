@@ -128,13 +128,13 @@ async function loadRequests() {
     for (const r of requests) {
       const contact = /@/.test(r.contact) ? `<a href="mailto:${esc(r.contact)}">${esc(r.contact)}</a>` : `<a href="tel:${esc(r.contact.replace(/[^\d+]/g, ''))}">${esc(r.contact)}</a>`;
       const el = document.createElement('div'); el.className = 'req';
-      el.innerHTML = `<h4>${esc(r.name)} · ${r.count} ${esc(r.size)} piece${r.count > 1 ? 's' : ''}, ${FREQ[r.frequency] || esc(r.frequency)} · $${r.quoteDollars}/mo</h4>
+      el.innerHTML = `<h4>${esc(r.name)} · ${esc(r.count)} ${esc(r.size)} piece${r.count > 1 ? 's' : ''}, ${FREQ[r.frequency] || esc(r.frequency)} · $${esc(r.quoteDollars)}/mo</h4>
         <div class="muted">${new Date(r.createdAt).toLocaleString()} · ${contact} · ${esc(r.zip)}</div>
         <div class="picks"><strong>Favourites:</strong> ${r.picks.map((p) => `<a href="https://rescued.art/gallery/?piece=${encodeURIComponent(p.token)}" target="_blank">${esc(p.title)}</a>`).join(', ')}</div>
         ${(r.types || []).length || (r.subjects || []).length ? `<div class="muted">Likes: ${esc([...(r.types || []), ...(r.subjects || [])].join(', '))}</div>` : ''}
         ${r.notes ? `<div style="margin-top:6px;">“${esc(r.notes)}”</div>` : ''}
         <div class="row" style="margin-top:8px; align-items:center;">Status:
-          <select data-req="${r.id}">${['new', 'contacted', 'renting', 'closed'].map((s) => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`;
+          <select data-req="${esc(r.id)}">${['new', 'contacted', 'renting', 'closed'].map((s) => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`;
       $('reqList').appendChild(el);
     }
     $('reqList').querySelectorAll('select[data-req]').forEach((sel) => sel.onchange = async () => {
@@ -214,16 +214,20 @@ async function loadList() {
     $('reviewStatus').textContent = state.needSize ? `${pieces.length} published piece(s) without a size. Tap S, M or L on each.` : (pieces.length ? '' : 'No pieces yet — capture one.');
     for (const p of pieces) {
       const el = document.createElement('div'); el.className = 'card'; el.onclick = () => openDetail(p.token);
+      // Every value from the API is escaped (2026-10-10): titles come from the vision model, Hermes, the Studio and
+      // HQ's boxes, and this page holds the Studio's session token.
       const badges = [
-        p.sizeClass ? `<span class="badge b-size">${p.sizeClass}</span>` : (p.published ? '<span class="badge b-nosize">no size</span>' : ''),
+        p.sizeClass ? `<span class="badge b-size">${esc(p.sizeClass)}</span>` : (p.published ? '<span class="badge b-nosize">no size</span>' : ''),
         p.published ? '<span class="badge b-pub">published</span>' : '<span class="badge b-draft">draft</span>',
         p.reviewStatus === 'pending' ? '<span class="badge b-pending">analyzing…</span>'
           : p.reviewStatus === 'analyzed' ? '<span class="badge b-analyzed">analyzed</span>' : '',
       ].join('');
-      el.innerHTML = `<img src="${p.hero || ''}" alt="" onerror="this.style.visibility='hidden'">
-        <div class="meta"><div class="t">${p.title || '(untitled)'}</div>
-        <div class="mono muted" style="font-size:.78rem">${p.token}</div>${badges}
+      el.innerHTML = `<img src="${esc(p.hero || '')}" alt="">
+        <div class="meta"><div class="t">${esc(p.title || '(untitled)')}</div>
+        <div class="mono muted" style="font-size:.78rem">${esc(p.token)}</div>${badges}
         ${state.needSize ? '<div class="seg"><button data-s="S">S</button><button data-s="M">M</button><button data-s="L">L</button></div>' : ''}</div>`;
+      // A photo that will not load is hidden (a listener, not an inline handler: the page's CSP allows no inline script).
+      el.querySelector('img').addEventListener('error', (ev) => { ev.target.style.visibility = 'hidden'; });
       if (state.needSize) el.querySelectorAll('.seg button').forEach((b) => b.onclick = async (ev) => {
         ev.stopPropagation();
         try { await setSize(p.token, b.dataset.s); el.remove(); const left = $('cards').children.length; $('reviewStatus').textContent = `${left} published piece(s) without a size. Tap S, M or L on each.`; }
@@ -278,7 +282,7 @@ function renderSlots(images) {
     for (const im of imgs) {
       const opts = SLOT_ORDER.map((r) => `<option value="${r}" ${r === im.role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('');
       const div = document.createElement('div'); div.className = 'slotimg'; div.style.marginTop = '8px';
-      div.innerHTML = `<img src="${im.url}" alt=""><select data-img="${im.id}" style="flex:1">${opts}</select>`;
+      div.innerHTML = `<img src="${esc(im.url)}" alt=""><select data-img="${esc(im.id)}" style="flex:1">${opts}</select>`;
       slot.appendChild(div);
     }
     wrap.appendChild(slot);
